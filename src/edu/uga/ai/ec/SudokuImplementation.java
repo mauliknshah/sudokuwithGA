@@ -5,8 +5,6 @@
  */
 
 
-
-
 /**
  * Notes : Try to use scramble mutation.
  */
@@ -15,13 +13,15 @@ package edu.uga.ai.ec;
 
 import java.util.*;
 import edu.uga.ai.ec.beans.*;
+import java.util.logging.Level;
+import java.util.logging.Logger;
         
 
 /**
  * This class is an implementation class for the Sudoku Puzzle.
  * @author Maulik
  */
-public class SudokuImplementation {
+public class SudokuImplementation  {
     private ArrayList<ArrayList<Integer>> sudokuProblem; //Sudoku problem, to be entered while implementing this class.
     private ArrayList<Chromosome> population = new ArrayList<Chromosome>(SudokuConstants.POPULATION_SIZE);//Population.
     private ArrayList<ArrayList<Chromosome>> populationIslands = new ArrayList<ArrayList<Chromosome>>();//Population ISLANDS
@@ -32,6 +32,11 @@ public class SudokuImplementation {
     
     private int selectionSize = SudokuConstants.PARENTS_SIZE * 2;//Selection Size.
     private int totalCycle = 0; //Cycle Count.
+    private boolean solutionFound = false;
+    
+    //Island Threads.
+    private Thread[] islandThreads;
+    
      
     
     /**
@@ -931,11 +936,11 @@ public class SudokuImplementation {
      * @param type is the type of island for selecting mutations.
      * @return is the final position of the zero.
      */
-    public int runEA(ArrayList<Chromosome> populationSegment,ArrayList<Integer> populationSegmentFitness,int switchCycle,int type){
+    public void runEA(ArrayList<Chromosome> populationSegment,ArrayList<Integer> populationSegmentFitness,int switchCycle,int type){
         int finalPosition = -1;
         System.out.println("PopulationFitness" + populationSegmentFitness);
         //Iterate through cycles. 
-        for(int cycle = 0; cycle < SudokuConstants.EXCHANGE_CYCLE ; cycle++){
+        for(int cycle = 0; cycle < SudokuConstants.EXCHANGE_CYCLE && !solutionFound ; cycle++){
              //Run the whole cycle.
              survivorSelection(mutation(recombination(parentSelection(cycle,populationSegment,populationSegmentFitness),cycle),cycle,type),cycle,populationSegment,populationSegmentFitness);
              totalCycle++;
@@ -950,13 +955,14 @@ public class SudokuImplementation {
                         break;
                     }
                  }//end for.
-                 
-                 if(finalPosition != -1)
+                 //Break if the solution found.
+                 if(finalPosition != -1){
+                     this.solutionFound = true;
                      break;
+                 }//end if.
              }//end if.
         }//end for.
         
-        return finalPosition;
     }//end method.
     
     
@@ -988,6 +994,58 @@ public class SudokuImplementation {
         }//end for.
     }//end method.
     
+    
+    
+    /**
+     * Inbuilt Runnable class to implement multi threading in Genetic Algorithms.
+     * The class is used for running the evolution for each island parallel.
+     */
+    class IslandModel extends Thread{
+         ArrayList<Chromosome> populationSegment;
+         ArrayList<Integer> populationSegmentFitness;
+         int switchCycle;
+         int type;
+         int threadIndex;
+
+        /**
+         * This constructor gets the required values to run the evolution cycles for an Island.
+         * @param threadName is the thread name.
+         * @param populationSegment is the population segment(island).
+         * @param populationSegmentFitness is the fitness array of that island.
+         * @param switchCycle is the evolution cycle count.
+         * @param type is the island type.
+         */
+        public IslandModel(ArrayList<Chromosome> populationSegment,ArrayList<Integer> populationSegmentFitness,
+         int switchCycle,int type,int threadIndex) {
+            this.populationSegment = populationSegment;
+            this.populationSegmentFitness = populationSegmentFitness;
+            this.switchCycle = switchCycle;
+            this.type = type;
+            this.threadIndex = threadIndex;
+        }//end consturctor.
+        
+        /**
+         * This is the over ridden method for the thread class to run the
+         * GA for the particular island.
+         */
+        @Override
+        public void run(){
+           runEA(this.populationSegment,this.populationSegmentFitness,this.switchCycle,this.type);//Call the runEA method.
+           
+           //Stop all the threads instead of this.
+           if(solutionFound){
+               for(int islandSize = 0 ; islandSize < SudokuConstants.ISLANDS ; islandSize++){
+                   if(this.threadIndex != islandSize){
+                        islandThreads[islandSize].interrupt();
+                   }//end if.
+               }//end for.
+               this.interrupt();
+           }//end if.
+          }//end method.
+    }//end class.
+    
+    
+    
     /**
      * This method runs the Genetic Algorithm with the population model available.
      * The system uses island model for managing the population.
@@ -1008,17 +1066,42 @@ public class SudokuImplementation {
         //Start Cycles.
         
         for(int cycle = 0 ; cycle < SudokuConstants.EVOLUTION_CYCLES; cycle += (4*SudokuConstants.EXCHANGE_CYCLE)){
+            this.islandThreads = new Thread[SudokuConstants.ISLANDS];
             for(int islandSize = 0 ; islandSize < SudokuConstants.ISLANDS ; islandSize++){
-                //Run EA for all the islands.
-                if(runEA(populationIslands.get(islandSize),populationFitnessIslands.get(islandSize),cycle,islandSize%4) != -1){
-                    System.out.println("Cycles:" + this.totalCycle);
-                    cycle = SudokuConstants.EVOLUTION_CYCLES;
-                    break; //End the loop.
-                }//end if.
+                //Start the thread.
+                islandThreads[islandSize] = new IslandModel(populationIslands.get(islandSize),populationFitnessIslands.get(islandSize),cycle,islandSize%4,islandSize);
+                islandThreads[islandSize].start();
             }//end.       
             
-            exchangeBest(populationIslands,populationFitnessIslands,cycle);
+            //Let the threads end the execution.
+            for(int islandSize = 0 ; islandSize < SudokuConstants.ISLANDS ; islandSize++){
+                try {
+                    islandThreads[islandSize].join();
+                } catch (InterruptedException ie) {
+                    System.out.println("Thread Interrupted:" + ie);
+                }
+            }//end for.
+            
+            //If the solution found, then break and end the algorithm.
+            if(this.solutionFound){
+                System.out.println("Cycles:" + this.totalCycle);
+                cycle = SudokuConstants.EVOLUTION_CYCLES;
+                break; //End the loop.
+            }else{
+                //Close the threads.
+                for(int islandSize = 0 ; islandSize < SudokuConstants.ISLANDS ; islandSize++){
+                    islandThreads[islandSize].interrupt();
+                }    
+               exchangeBest(populationIslands,populationFitnessIslands,cycle); 
+            }
+            //Run EA for all the islands.
+//                if(runEA(populationIslands.get(islandSize),populationFitnessIslands.get(islandSize),cycle,islandSize%4) != -1){
+//                    System.out.println("Cycles:" + this.totalCycle);
+//                    cycle = SudokuConstants.EVOLUTION_CYCLES;
+//                    break; //End the loop.
+//                }//end if.
         }//end for.
+        
         //Copy the population segments into the population.
         for(int islandSize = 0,count =0 ; islandSize < SudokuConstants.ISLANDS ; islandSize++){
             for(int segmentSize = 0 ; segmentSize < populationIslands.size() ; segmentSize++ ){
