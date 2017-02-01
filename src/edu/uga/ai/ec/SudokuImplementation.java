@@ -28,7 +28,8 @@ public class SudokuImplementation {
     private boolean diversityTooLow = false;//Flag if diversity is below some level.
     private int diversityMaintananceCounter = 0; //Diversity Maintance cycle counter.
     
-    private int selectionSize = SudokuConstants.PARENTS_SIZE * 2;
+    private int selectionSize = SudokuConstants.PARENTS_SIZE * 2;//Selection Size.
+    private int totalCycle = 0; //Cycle Count.
      
     
     /**
@@ -49,7 +50,7 @@ public class SudokuImplementation {
         Chromosome mutatedIndividual = null;
         
         //Update the mutation ratio.
-        double mutationRate = (1 - ((double)cycle/(double)SudokuConstants.EVOLUTION_CYCLES));
+        double mutationRate = (1 - ((double)cycle/(double)(SudokuConstants.EVOLUTION_CYCLES)));
         if(diversityTooLow){
             mutationRate = 0.9; // 90%
         }
@@ -434,24 +435,24 @@ public class SudokuImplementation {
         Chromosome child = new Chromosome();//Create a new individual with nill configuration.
         
          //Update the recombination ratio.
-        double reCombRate = (0.5 + ((double)cycle/((double)SudokuConstants.EVOLUTION_CYCLES * 2)));
+        double reCombRate = (0 + ((double)cycle/((double)SudokuConstants.EVOLUTION_CYCLES * 2)));
         
         double reCombOrNot = new Random().nextDouble();
         
 //        System.out.println("Crossover Rate:"  + reCombRate + " Crossover or not:" + reCombOrNot);
         
         //Perform recombination with probablity.
-        if(reCombOrNot <= reCombRate){
+       if(reCombOrNot <= reCombRate){
             int selectRecomb = new Random().nextInt(2);
             if(selectRecomb == 1){
 //                System.out.println("Recombination 1");
               //PMX Recombination
-//              System.out.println("PMX...");
+//////              System.out.println("PMX...");
               child = recombinationPMX(parents);
             }else{
 //                System.out.println("Recombination 2");
             // Uni-order Recombination
-//            System.out.println("Uni-Order...");
+////            System.out.println("Uni-Order...");
               child = recombinationUniformOrder(parents);
             }
         }else{
@@ -693,7 +694,7 @@ public class SudokuImplementation {
      * @param populationSegmentFitness  is the current island's population fitness segment.
      */
     public ArrayList<Chromosome> parentSelection(int cycle,ArrayList<Chromosome> populationSegment,ArrayList<Integer> populationSegmentFitness){
-        System.out.println("Parent Selection");
+//        System.out.println("Parent Selection");
         if(this.diversityTooLow){
             selectionSize = SudokuConstants.PARENTS_SIZE; //If the population is under some diversity than remove selection pressure.
         }else{
@@ -935,7 +936,8 @@ public class SudokuImplementation {
         for(int cycle = 0; cycle < SudokuConstants.EXCHANGE_CYCLE ; cycle++){
              //Run the whole cycle.
              survivorSelection(mutation(recombination(parentSelection(cycle,populationSegment,populationSegmentFitness),cycle),cycle,type),cycle,populationSegment,populationSegmentFitness);
-             System.out.println("Type:" + type + "Cycle: " + cycle + " PopulationFitness:" + populationSegmentFitness);
+             totalCycle++;
+//             System.out.println("Type:" + type + "Cycle: " + cycle + " PopulationFitness:" + populationSegmentFitness);
              
              if(populationSegmentFitness.contains(0)){
                  
@@ -1007,7 +1009,7 @@ public class SudokuImplementation {
             for(int islandSize = 0 ; islandSize < SudokuConstants.ISLANDS ; islandSize++){
                 //Run EA for all the islands.
                 if(runEA(populationIslands.get(islandSize),populationFitnessIslands.get(islandSize),cycle,islandSize%4) != -1){
-                    System.out.println("Cycles:" + cycle);
+                    System.out.println("Cycles:" + this.totalCycle);
                     cycle = SudokuConstants.EVOLUTION_CYCLES;
                     break; //End the loop.
                 }//end if.
