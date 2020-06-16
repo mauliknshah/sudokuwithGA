@@ -1,4 +1,4 @@
-# sudokuwithGA
+# Solving Sudoku using Genetic Algorithms
 
 This project is a Genetic Algorithm (GA) designed for solving the Sudoku puzzles. The GA uses adaptive recombination and adaptive mutation with informed operators to solve the given game playing problem effectively and efficiently. Use of island model in this GA has improved performance significantly. As result, the GA is able to solve the easy Sudoku puzzles with ease, although it staggers to find solutions as the difficulty level increases.
 
